@@ -82,14 +82,17 @@ body{
 /* ✅ พรีวิวกล้องแบบ Zoom (PIP มุมซ้ายล่าง) */
 #camFull{
   position: fixed;
-  left: 12px; bottom: 12px;
+  left: 0;                /* ชิดซ้าย */
+  bottom: 0;              /* ชิดล่าง */
   width: 260px; height: 160px;
-  z-index: 6; display: none;
-  border:1px solid rgba(255,255,255,.35);
-  border-radius:12px; overflow:hidden;
-  box-shadow:0 8px 22px rgba(0,0,0,.5);
+  z-index: 6; display: none;       /* จะโชว์/ซ่อนด้วย JS ตาม SHOW_PIP */
+  border: 0;                         /* ไม่มีขอบ เพื่อชิดเป๊ะ */
+  border-radius: 0;                  /* ไม่โค้งมุม เพื่อชิดจริง */
+  overflow: hidden;
+  box-shadow: none;                  /* ไม่ใส่เงา จะได้ชิดสุด */
   background:#000;
 }
+
 #camFull video{
   width:100%; height:100%; object-fit:cover;
   transform: scaleX(-1); /* mirror แบบวิดีโอคอล */
@@ -309,8 +312,6 @@ body{
   #acceptBox{ top:10% }
 }
 
-/* Force hide PIP forever */
-#camFull{ display:none !important; visibility:hidden !important; }
 </style>
 </head>
 <body>
@@ -393,7 +394,7 @@ body{
         คะแนนสะสมรวม (4 รอบ): <b id="accumTotal">0</b>
       </p>
       <div class="wrong-box" style="display:none;">
-        <div class="wrong-title">คำที่เก็บมาผิด</div>
+        <div class="wrong-title">คำที่เก็บมาผิด T_T</div>
         <div id="wrongList" class="wrong-list"></div>
       </div>
       <div class="actions">
@@ -1474,4 +1475,3 @@ if(window.__GAME__) window.__GAME__.startGame();
 
 </body>
 </html>
-

@@ -311,7 +311,25 @@ body{
   #kid{ width:180px; height:180px }
   #acceptBox{ top:10% }
 }
+  /* ✅ ย้ำตำแหน่ง PIP ให้ชิดขอบจริง ๆ ตอน fullscreen */
+:fullscreen #camFull,
+:-webkit-full-screen #camFull {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  transform: translateZ(0);
+}
 
+:fullscreen,
+:-webkit-full-screen {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+  
 </style>
 </head>
 <body>
@@ -1475,3 +1493,4 @@ if(window.__GAME__) window.__GAME__.startGame();
 
 </body>
 </html>
+

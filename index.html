@@ -82,27 +82,33 @@ body{
 /* ✅ พรีวิวกล้องแบบ Zoom (PIP มุมซ้ายล่าง) */
 #camFull{
   position: fixed;
-  left: 0;                /* ชิดซ้าย */
-  bottom: 0;              /* ชิดล่าง */
+  left: 0; bottom: 0;                 /* ชิดจริง */
   width: 260px; height: 160px;
-  z-index: 6; display: none;       /* จะโชว์/ซ่อนด้วย JS ตาม SHOW_PIP */
-  border: 0;                         /* ไม่มีขอบ เพื่อชิดเป๊ะ */
-  border-radius: 0;                  /* ไม่โค้งมุม เพื่อชิดจริง */
-  overflow: hidden;
-  box-shadow: none;                  /* ไม่ใส่เงา จะได้ชิดสุด */
+  z-index: 6; display: none;
+  border: 0; border-radius: 0; overflow: hidden; box-shadow: none;
   background:#000;
 }
-
 #camFull video{
   width:100%; height:100%; object-fit:cover;
-  transform: scaleX(-1); /* mirror แบบวิดีโอคอล */
+  transform: scaleX(-1);
 }
 
-/* ✅ แคนวาสตัดฉากหลัง: โปร่งใส, อยู่ก่อนพื้นหลัง 1 เลเยอร์ */
+/* ✅ แคนวาสตัดฉากหลัง: ให้ยึด viewport เสมอ (แก้ไม่เต็มตอน fullscreen) */
 #camCutout{
-  position:absolute; inset:0;
-  z-index:1;          /* อยู่หลังคำและตัวละคร */
+  position: fixed;                     /* เดิมเป็น absolute */
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index:1;
   pointer-events:none;
+}
+:fullscreen #camCutout,
+:-webkit-full-screen #camCutout{
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  transform: translateZ(0);
 }
 
 /* คำ / ปุ่ม / เด็ก ให้สูงกว่าแคนวาส */
@@ -311,25 +317,14 @@ body{
   #kid{ width:180px; height:180px }
   #acceptBox{ top:10% }
 }
-  /* ✅ ย้ำตำแหน่ง PIP ให้ชิดขอบจริง ๆ ตอน fullscreen */
+
+/* ✅ ย้ำตำแหน่ง PIP ให้ชิดขอบจริง ๆ ตอน fullscreen */
 :fullscreen #camFull,
 :-webkit-full-screen #camFull {
-  position: fixed;
-  left: 0;
-  bottom: 0;
-  margin: 0;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  transform: translateZ(0);
+  position: fixed; left: 0; bottom: 0; margin: 0;
+  border: 0; border-radius: 0; box-shadow: none; transform: translateZ(0);
 }
-
-:fullscreen,
-:-webkit-full-screen {
-  margin: 0 !important;
-  padding: 0 !important;
-}
-  
+:fullscreen, :-webkit-full-screen { margin:0!important; padding:0!important; }
 </style>
 </head>
 <body>
@@ -436,7 +431,6 @@ body{
          line-height:1; display:grid; place-items:center; cursor:pointer;
          z-index:10000;">⛶</button>
 
-
   <!-- ปุ่ม Mute -->
   <button id="muteBtn" aria-pressed="false" title="Mute / Unmute"
     style="position:fixed; right:12px; bottom:12px; width:44px; height:44px; border-radius:999px; background:rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.3); color:#fff; font-size:18px; line-height:1; display:grid; place-items:center; cursor:pointer; z-index:10000;">🔊</button>
@@ -473,20 +467,18 @@ body{
   const fsBtn = document.getElementById('fsBtn');
   if(!fsBtn) return;
 
-  // เช็คสถานะเต็มจอ (รองรับ Safari)
   const isFS = () => document.fullscreenElement || document.webkitFullscreenElement;
 
   function updateIcon(){
-    // เข้าสู่เต็มจอ: แสดงไอคอนย่อ (🗗) | ออกจากเต็มจอ: แสดงไอคอนขยาย (⛶)
     fsBtn.textContent = isFS() ? '🗗' : '⛶';
     fsBtn.setAttribute('aria-pressed', isFS() ? 'true' : 'false');
   }
 
   async function enterFS(){
-    const el = document.documentElement; // ทั้งหน้า
+    const el = document.documentElement;
     try{
       if (el.requestFullscreen) await el.requestFullscreen();
-      else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen(); // Safari
+      else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
     }catch(e){
       alert('เบราว์เซอร์ไม่อนุญาตโหมดเต็มจอ: ' + (e?.message || e));
     }
@@ -495,26 +487,21 @@ body{
   async function exitFS(){
     try{
       if (document.exitFullscreen) await document.exitFullscreen();
-      else if (document.webkitExitFullscreen) await document.webkitExitFullscreen(); // Safari
-    }catch(e){
-      // เงียบ ๆ ก็ได้
-    }
+      else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
+    }catch(e){}
   }
 
   fsBtn.addEventListener('click', async ()=>{
-    // ต้องมาจากการ "คลิก" ของผู้ใช้เสมอ เบราว์เซอร์ถึงจะยอมเข้าฟูลสกรีน
     if (!isFS()) await enterFS();
     else await exitFS();
   });
 
-  // อัปเดตไอคอนเมื่อสถานะฟูลสกรีนเปลี่ยน (เช่น กด ESC)
   document.addEventListener('fullscreenchange', updateIcon);
   document.addEventListener('webkitfullscreenchange', updateIcon);
 
   updateIcon();
 })();
 </script>
-
 
   <!-- ====== กล้อง + Segmentation + ติดตาม (ก้อนเดียว) ====== -->
   <script>
@@ -529,14 +516,27 @@ body{
     });
     document.body.appendChild(motionBtn);
 
-const SHOW_PIP = false;  // ซ่อนตลอด แต่ยังคงระบบกล้อง/ตัดฉากหลัง
+    const SHOW_PIP = false;
 
-
-    // ===== องค์ประกอบใน DOM ที่มีอยู่แล้วในไฟล์ของคุณ =====
+    // ===== องค์ประกอบใน DOM =====
     const camFull    = document.getElementById('camFull');
     const camFullVid = document.getElementById('camFullVid');
     const cutCvs     = document.getElementById('camCutout');
     const cutCtx     = cutCvs.getContext('2d', { willReadFrequently:true });
+
+    // sync ขนาดแคนวาสกับ viewport เสมอ (แก้ไม่เต็มตอนเข้า/ออก fullscreen)
+    function syncCanvasSize(){
+      const w = Math.max(window.innerWidth, 1);
+      const h = Math.max(window.innerHeight,1);
+      cutCvs.width  = w;
+      cutCvs.height = h;
+      cutCvs.style.width  = w + 'px';
+      cutCvs.style.height = h + 'px';
+      try{ cutCtx.clearRect(0,0,w,h); }catch(e){}
+    }
+    window.addEventListener('resize', syncCanvasSize);
+    document.addEventListener('fullscreenchange', ()=>{ syncCanvasSize(); setTimeout(syncCanvasSize,0); });
+    document.addEventListener('webkitfullscreenchange', ()=>{ syncCanvasSize(); setTimeout(syncCanvasSize,0); });
 
     // วิดีโอตัวหลักสำหรับประมวลผล (ซ่อนไว้)
     const video = document.createElement('video');
@@ -548,45 +548,37 @@ const SHOW_PIP = false;  // ซ่อนตลอด แต่ยังคงร
     let stream = null, enabled = false, rafId = 0, heartbeatId = 0, watchdogId = 0, camLoop = null;
     const MIRROR = true;
 
-    // ===== ตัดพื้นหลังด้วย MediaPipe Selfie Segmentation =====
+    // ===== Selfie Segmentation =====
     const selfieSegmentation = new SelfieSegmentation({
       locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`
     });
     selfieSegmentation.setOptions({ modelSelection: 1 });
 
     function onResults(results){
-  const w = cutCvs.width  = cutCvs.clientWidth  || window.innerWidth;
-  const h = cutCvs.height = cutCvs.clientHeight || window.innerHeight;
+      const w = cutCvs.width;   // ใช้ค่าที่ sync ไว้แล้ว
+      const h = cutCvs.height;
 
-  cutCtx.save();
-  cutCtx.clearRect(0,0,w,h);
+      cutCtx.save();
+      cutCtx.clearRect(0,0,w,h);
 
-  // 🔁 ถ้าเปิดโหมดกระจก ให้กลับแกน X ตั้งแต่ก่อนวาด mask และ image
-  if (MIRROR){
-    cutCtx.translate(w, 0);
-    cutCtx.scale(-1, 1);
-  }
+      if (MIRROR){
+        cutCtx.translate(w, 0);
+        cutCtx.scale(-1, 1);
+      }
 
-  // 1) วาด mask (ขาว=คน, ดำ=พื้นหลัง) — ตอนนี้ถูกกลับทิศแล้วเหมือนกัน
-  cutCtx.drawImage(results.segmentationMask, 0, 0, w, h);
+      cutCtx.drawImage(results.segmentationMask, 0, 0, w, h);
+      cutCtx.globalCompositeOperation = 'source-in';
+      cutCtx.drawImage(results.image, 0, 0, w, h);
 
-  // 2) เก็บเฉพาะส่วนคน
-  cutCtx.globalCompositeOperation = 'source-in';
-
-  // 3) วาดภาพจริง (อยู่ในคอนเท็กซ์ที่ถูกกลับแล้วถ้า MIRROR=true)
-  cutCtx.drawImage(results.image, 0, 0, w, h);
-
-  cutCtx.globalCompositeOperation = 'source-over';
-  cutCtx.restore();
-}
-
+      cutCtx.globalCompositeOperation = 'source-over';
+      cutCtx.restore();
+    }
     selfieSegmentation.onResults(onResults);
 
     // ===== ติดตามศีรษะ (FaceDetector + Motion fallback) =====
     const hasFace   = 'FaceDetector' in window;
     const detector  = hasFace ? new FaceDetector({ fastMode:true, maxDetectedFaces:1 }) : null;
 
-    // เฟรมเล็กสำหรับ motion
     const W=128, H=96;
     const cvs=document.createElement('canvas'); cvs.width=W; cvs.height=H;
     const ctx=cvs.getContext('2d',{willReadFrequently:true});
@@ -679,7 +671,6 @@ const SHOW_PIP = false;  // ซ่อนตลอด แต่ยังคงร
       try{
         let usedFace = false;
 
-        // เช็คแสง
         ctx.drawImage(video,0,0,W,H);
         const luma = avgLuma(ctx.getImageData(0,0,W,H));
         const enoughLight = luma >= LUMA_MIN;
@@ -747,39 +738,39 @@ const SHOW_PIP = false;  // ซ่อนตลอด แต่ยังคงร
     // ===== เปิด / ปิด =====
     async function enable(){
       if(enabled) return;
+      enabled = true;                        // จอง state กันกดรัว
+      motionBtn.innerText = '📷: ...';
       try{
         stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user' }, audio:false });
         video.srcObject = stream;
         await video.play().catch(()=>{});
 
-        // พรีวิว PIP มุมซ้ายล่าง (ข้ามถ้า SHOW_PIP=false)
-if (SHOW_PIP && camFullVid && camFull){
-  camFullVid.srcObject = stream;
-  await camFullVid.play().catch(()=>{});
-  camFull.style.display = 'block';
-}
+        if (SHOW_PIP && camFullVid && camFull){
+          camFullVid.srcObject = stream;
+          await camFullVid.play().catch(()=>{});
+          camFull.style.display = 'block';
+        }
 
-        // แสดงผลแคนวาสตัดพื้นหลัง
         cutCvs.style.display = 'block';
-        cutCvs.width = window.innerWidth; 
-        cutCvs.height = window.innerHeight;
+        syncCanvasSize();                    // สำคัญ: ยึด viewport ตอนนี้เลย
 
-        // เริ่มส่งเฟรมเข้า MediaPipe
+        if (camLoop) { try{ camLoop.stop(); }catch(e){} }
         camLoop = new Camera(video, {
           onFrame: async () => { await selfieSegmentation.send({ image: video }); },
           width: 1280, height: 720
         });
         camLoop.start();
 
-        enabled = true;
         motionBtn.innerText = '📷: On';
 
-        // รีเซ็ตสถานะ tracking และเริ่ม loop ต่าง ๆ
-        prev=null; prevCxNorm=null; prevTs=null; pendingLane=null; persistCount=0; targetLane=currentLane; lastLockTs=0;
+        // รีเซ็ต tracking
+        prev=null; prevCxNorm=null; prevTs=null; pendingLane=null; persistCount=0; targetLane=currentLane; lastLockTs=performance.now();
         cancelAnimationFrame(rafId); rafId=requestAnimationFrame(loop);
         clearInterval(heartbeatId); heartbeatId=setInterval(heartbeat, 500);
         clearInterval(watchdogId);  watchdogId=setInterval(watchdog, 300);
       }catch(err){
+        enabled = false;
+        motionBtn.innerText='📷: Off';
         alert('เปิดกล้องไม่ได้: '+(err?.name||'')+' '+(err?.message||err));
       }
     }
@@ -788,14 +779,18 @@ if (SHOW_PIP && camFullVid && camFull){
       enabled=false; motionBtn.innerText='📷: Off';
       cancelAnimationFrame(rafId);
       clearInterval(heartbeatId); clearInterval(watchdogId);
-
       try{ camLoop && camLoop.stop(); }catch(e){}
-      if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+      camLoop = null;                        // เคลียร์ instance
 
+      if(stream){
+        try{ stream.getTracks().forEach(t=>t.stop()); }catch(e){}
+        stream = null;
+      }
+      video.pause?.();
       video.srcObject=null;
 
       if (SHOW_PIP && camFullVid){ camFullVid.pause?.(); camFullVid.srcObject=null; }
-if (SHOW_PIP && camFull){ camFull.style.display='none'; }
+      if (SHOW_PIP && camFull){ camFull.style.display='none'; }
 
       cutCtx.clearRect(0,0,cutCvs.width,cutCvs.height);
       cutCvs.style.display='none';
@@ -804,34 +799,28 @@ if (SHOW_PIP && camFull){ camFull.style.display='none'; }
     motionBtn.addEventListener('click', ()=>{ enabled?disable():enable(); });
     window.addEventListener('beforeunload', disable);
 
-    // ให้เกมเช็คได้ว่าระบบพร้อม (กัน error ถ้า __GAME__ ยังไม่ถูกเซ็ต)
     if(!window.__GAME__) window.__GAME__ = {};
     if(!window.__GAME__.__isRunning) window.__GAME__.__isRunning = ()=>true;
 
-// ===== Watchdog: เฝ้ากล้อง ถ้า stream ดับ ให้กู้คืนอัตโนมัติ =====
-function isStreamAlive(){
-  return !!(stream && stream.getVideoTracks().some(t => t.readyState === 'live'));
-}
+    // ===== Watchdog: เฝ้ากล้อง ถ้า stream ดับ ให้กู้คืนอัตโนมัติ =====
+    function isStreamAlive(){
+      return !!(stream && stream.getVideoTracks().some(t => t.readyState === 'live'));
+    }
+    window.addEventListener('visibilitychange', ()=>{
+      if (document.visibilityState === 'visible' && enabled && !isStreamAlive()){
+        try{ disable(); }catch(e){}
+        enable();
+      }
+    });
+    setInterval(()=>{
+      if (enabled && !isStreamAlive()){
+        try{ disable(); }catch(e){}
+        enable();
+      }
+    }, 2000);
 
-// โฟกัสกลับมา (เช่น สลับแท็บ) แล้วกล้องตาย ให้เปิดใหม่
-window.addEventListener('visibilitychange', ()=>{
-  if (document.visibilityState === 'visible' && enabled && !isStreamAlive()){
-    try{ disable(); }catch(e){}
-    enable();
-  }
-});
-
-// เช็คทุก 2 วิ ว่ายัง live ไหม
-setInterval(()=>{
-  if (enabled && !isStreamAlive()){
-    try{ disable(); }catch(e){}
-    enable();
-  }
-}, 2000);
-
-// เปิดทางให้สคริปต์เกม “ขอเปิดกล้องให้ชัวร์” ก่อนเริ่มเกม
-window.__CAM__ = { ensureOn: ()=>{ /* no-op */ return false; } };
-
+    // เปิดทางให้เกม “ขอเปิดกล้องให้ชัวร์” ก่อนเริ่มเกม (ถ้าจะใช้)
+    window.__CAM__ = { ensureOn: ()=>false };
   })();
   </script>
 
@@ -1373,31 +1362,23 @@ window.__CAM__ = { ensureOn: ()=>{ /* no-op */ return false; } };
       });
     }
     const quickHome = document.getElementById('quickRestart');
-if(quickHome){
-  quickHome.addEventListener('click', ()=>{
-    // กลับหน้าหลักแบบนุ่มนวล: ไม่รีโหลด → กล้องยังอยู่
-    if (running) {
-      pauseGame();
-      running = false;
+    if(quickHome){
+      quickHome.addEventListener('click', ()=>{
+        if (running) { pauseGame(); running = false; }
+        ended = false;
+        clearInterval(countdown);
+        clearInterval(spawner);
+        overlay.classList.remove('show');
+        clearWordsAndFloats();
+
+        const startScreen = document.getElementById('startScreen');
+        const landing     = document.getElementById('landing');
+        if (startScreen) startScreen.style.display = 'none';
+        if (landing) landing.classList.remove('hide');
+      });
     }
-    ended = false;
-    clearInterval(countdown);
-    clearInterval(spawner);
-    overlay.classList.remove('show');
-    clearWordsAndFloats();
 
-    // รีเซ็ต UI
-    const startScreen = document.getElementById('startScreen');
-    const landing     = document.getElementById('landing');
-    if (startScreen) startScreen.style.display = 'none';
-    if (landing) landing.classList.remove('hide');
-
-    // (ตัวเลือก) ถ้าอยากรีเซ็ตคะแนนสะสมด้วย ให้ uncomment บรรทัดล่าง:
-    // cumulativeScore = 0; roundsPlayed = 0; lastRunScore = 0; updateAccum();
-  });
-}
-
-})();
+  })();
   </script>
 
   <!-- หน้าจอเริ่ม: นับถอยหลัง -->
@@ -1410,7 +1391,7 @@ if(quickHome){
 
   if(!startScreen || !startBtn || !countdownEl || !restartBtn) return;
 
-  let starting = false; // กันกดซ้ำระหว่างนับถอยหลัง
+  let starting = false;
 
   function startCountdown(){
     if (starting) return;
@@ -1426,9 +1407,8 @@ if(quickHome){
       }else{
         clearInterval(itv);
         startScreen.style.display = 'none';
-        // ❌ ไม่เปิดกล้องอัตโนมัติ (ให้ผู้เล่นกดปุ่ม 📷 เอง)
-if(window.__GAME__) window.__GAME__.startGame();
-        starting = false; // พร้อมให้เริ่มรอบใหม่ในครั้งถัดไป
+        if(window.__GAME__) window.__GAME__.startGame();
+        starting = false;
       }
     }, 1000);
   }
@@ -1439,8 +1419,8 @@ if(window.__GAME__) window.__GAME__.startGame();
   });
 
   restartBtn.addEventListener('click', () => {
-  if(window.__GAME__) window.__GAME__.startGame();
-});
+    if(window.__GAME__) window.__GAME__.startGame();
+  });
 })();
 </script>
 
@@ -1493,4 +1473,3 @@ if(window.__GAME__) window.__GAME__.startGame();
 
 </body>
 </html>
-

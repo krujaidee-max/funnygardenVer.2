@@ -260,7 +260,7 @@ body{
 /* วงคำ */
 .word{
   position:absolute; top:-160px; left:0;
-  width:150px; height:150px; border-radius:50%;
+  width:180px; height:180px; border-radius:50%;
   background:rgba(0,0,0,.48);
   border:2px solid rgba(255,255,255,.28);
   box-shadow:0 10px 22px rgba(0,0,0,.6);
@@ -273,7 +273,7 @@ body{
 /* ผลไม้ “กลางวง” เสมอ */
 .word .fruit{
   position:absolute;
-  left:50%; top:32%;
+  left:50%; top:30%;
   transform:translate(-50%, -50%);
   font-size:66px;
   line-height:1;
@@ -283,7 +283,7 @@ body{
 /* คำ: อยู่กึ่งกลางแกน X และยอมล้น */
 .word .label{
   position:absolute;
-  left:50%; top:60%;
+  left:50%; top:55%;
   transform:translateX(-50%);
   font-weight:900;
   text-align:center;
@@ -409,16 +409,18 @@ body{
   <audio id="winSound" preload="auto"></audio>
   <audio id="bgm" preload="auto"></audio>
 
+<!-- ปุ่ม Full Screen -->
+<button id="fsBtn" title="Full Screen"
+  style="position:fixed; right:12px; bottom:64px; width:44px; height:44px;
+         border-radius:999px; background:rgba(0,0,0,.45);
+         border:1px solid rgba(255,255,255,.3); color:#fff; font-size:18px;
+         line-height:1; display:grid; place-items:center; cursor:pointer;
+         z-index:10000;">⛶</button>
+
+
   <!-- ปุ่ม Mute -->
   <button id="muteBtn" aria-pressed="false" title="Mute / Unmute"
     style="position:fixed; right:12px; bottom:12px; width:44px; height:44px; border-radius:999px; background:rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.3); color:#fff; font-size:18px; line-height:1; display:grid; place-items:center; cursor:pointer; z-index:10000;">🔊</button>
-
-<!-- ปุ่ม Fullscreen (อยู่เหนือปุ่มปิดเสียง) -->
-<button id="fsBtn" title="เต็มจอ / ออกเต็มจอ"
-  style="position:fixed; right:12px; bottom:62px; width:44px; height:44px;
-  border-radius:999px; background:rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.3);
-  color:#fff; font-size:18px; line-height:1; display:grid; place-items:center;
-  cursor:pointer; z-index:10000;">⛶</button>
 
   <!-- MediaPipe deps (ต้องมาก่อนโค้ดกล้องของเรา) -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
@@ -450,50 +452,47 @@ body{
 <script>
 (function(){
   const fsBtn = document.getElementById('fsBtn');
-  const target = document.getElementById('game') || document.documentElement;
+  if(!fsBtn) return;
 
-  function isFullscreen(){
-    return document.fullscreenElement || document.webkitFullscreenElement;
+  // เช็คสถานะเต็มจอ (รองรับ Safari)
+  const isFS = () => document.fullscreenElement || document.webkitFullscreenElement;
+
+  function updateIcon(){
+    // เข้าสู่เต็มจอ: แสดงไอคอนย่อ (🗗) | ออกจากเต็มจอ: แสดงไอคอนขยาย (⛶)
+    fsBtn.textContent = isFS() ? '🗗' : '⛶';
+    fsBtn.setAttribute('aria-pressed', isFS() ? 'true' : 'false');
   }
-  function setIcon(){
-    fsBtn.textContent = isFullscreen() ? '🗗' : '⛶';
-    fsBtn.title = isFullscreen() ? 'ออกจากเต็มจอ (Esc)' : 'เต็มจอ';
-  }
+
   async function enterFS(){
+    const el = document.documentElement; // ทั้งหน้า
     try{
-      if (target.requestFullscreen) await target.requestFullscreen();
-      else if (target.webkitRequestFullscreen) await target.webkitRequestFullscreen();
-    }catch(e){}
+      if (el.requestFullscreen) await el.requestFullscreen();
+      else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen(); // Safari
+    }catch(e){
+      alert('เบราว์เซอร์ไม่อนุญาตโหมดเต็มจอ: ' + (e?.message || e));
+    }
   }
+
   async function exitFS(){
     try{
       if (document.exitFullscreen) await document.exitFullscreen();
-      else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
-    }catch(e){}
+      else if (document.webkitExitFullscreen) await document.webkitExitFullscreen(); // Safari
+    }catch(e){
+      // เงียบ ๆ ก็ได้
+    }
   }
 
   fsBtn.addEventListener('click', async ()=>{
-    if(!isFullscreen()) await enterFS();
+    // ต้องมาจากการ "คลิก" ของผู้ใช้เสมอ เบราว์เซอร์ถึงจะยอมเข้าฟูลสกรีน
+    if (!isFS()) await enterFS();
     else await exitFS();
-    setIcon();
-    setTimeout(()=>window.dispatchEvent(new Event('resize')), 50);
   });
 
-  document.addEventListener('fullscreenchange', ()=>{
-    setIcon();
-    setTimeout(()=>window.dispatchEvent(new Event('resize')), 50);
-  });
-  document.addEventListener('webkitfullscreenchange', ()=>{
-    setIcon();
-    setTimeout(()=>window.dispatchEvent(new Event('resize')), 50);
-  });
+  // อัปเดตไอคอนเมื่อสถานะฟูลสกรีนเปลี่ยน (เช่น กด ESC)
+  document.addEventListener('fullscreenchange', updateIcon);
+  document.addEventListener('webkitfullscreenchange', updateIcon);
 
-  // ช็อตคัต: กด F เพื่อสลับโหมดเต็มจอ
-  document.addEventListener('keydown', (e)=>{
-    if(e.key === 'f' || e.key === 'F') fsBtn.click();
-  });
-
-  setIcon();
+  updateIcon();
 })();
 </script>
 

@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>เกม: สวนหรรษา มาตราคัวสะกด</title>
+<style>
+/* ====================== ฟอนต์แบบฝัง (ใช้ทุกที่) ====================== */
+@font-face{
+  font-family: 'MyGameFont';
+  src: url('image/THSarabunNew.woff2') format('woff2'),
+       url('image/THSarabunNew.woff') format('woff'),
+       url('image/THSarabunNew.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face{
+  font-family: 'MyGameFont';
+  src: url('image/THSarabunNewBold.woff2') format('woff2'),
+       url('image/THSarabunNewBold.woff') format('woff'),
+       url('image/THSarabunNewBold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ใช้ฟอนต์เดียวกันทั่วหน้า */
+html, body, button, input, select, textarea, .pill, .btn, .btn-mini,
+.levelBtn, #startTitle, #countdown, .label, #timer {
+  font-family: 'MyGameFont', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+}
+
+:root{ --glass: rgba(0,0,0,.45); --ok:#10b981; --bad:#ef4444; }
+
+/* ฉากหลักเต็มจอ (พื้นหลังด้านหลังเวที) */
+html,body{ height:100%; margin:0; color:#fff; }
+#game{
+  position:relative; width:100vw; height:100vh; overflow:hidden;
+  background: url("image/background3.png") center/cover no-repeat fixed !important;
+}
+
+/* ===== เวทีคงที่ 1280x720 แล้วสเกลลง/ขึ้นให้พอดีจอ (letterbox) ===== */
+#stage{
+  position:absolute; left:50%; top:50%;
+  width:1280px; height:720px;
+  transform:translate(-50%,-50%) scale(var(--stage-scale,1));
+  transform-origin:center;
+  overflow:hidden;    /* กันของล้นเวที */
+}
+
+/* ✅ พรีวิวกล้องเต็มจอ “ภายในเวที” เพื่อให้สเกลตามเวที */
+#camFull{
+  position:absolute; inset:0;
+  z-index:0;
+  display:none;
+  overflow:hidden; background:#000;
+  pointer-events:none;
+}
+#camFull video{
+  position:absolute; inset:0;
+  width:100%; height:100%;
+  object-fit:cover;
+  transform:scaleX(-1);
+  pointer-events:none;
+}
+
+/* ====== Landing = เมนูเลือกด่าน (ให้อยู่ในเวที) ====== */
+#landing{
+  position:absolute; inset:0;
+  display:flex; flex-direction:column; gap:22px;
+  align-items:center; justify-content:center;
+  z-index: 20000; transition: opacity .3s ease;
+}
+#landing.hide{ opacity:0; pointer-events:none; visibility:hidden; }
+#landing .brand{ width:min(92%, 1100px); }
+#landing .brand img{ width:100%; height:auto; display:block; filter:drop-shadow(0 10px 30px rgba(0,0,0,.6)); max-height:320px; object-fit:contain; }
+
+/* ปุ่มด่านใหญ่เรียงแนวตั้ง */
+.level-menu{ display:flex; flex-direction:column; gap:14px; width:min(92%, 640px); }
+.levelBtn{
+  width:100%;
+  padding: 10px 16px;
+  font-size: clamp(20px, 2.5vw, 34px); font-weight: 1000; letter-spacing:.2px;
+  border:0; border-radius:14px; color:#fff; background: rgba(0,0,0,.55);
+  box-shadow:0 10px 28px rgba(0,0,0,.35); cursor:pointer; text-align:center;
+  border:1px solid rgba(255,255,255,.18); backdrop-filter: blur(6px);
+}
+.levelBtn:hover{ filter:brightness(1.08); }
+.levelBtn:active{ transform: translateY(1px); }
+
+/* ====== HUD + หลอดคะแนน (ให้ติดในเวที) ====== */
+.hud{
+  position:absolute; left:12px; right:12px; top:12px;
+  display:flex; align-items:center; gap:12px; justify-content:space-between; pointer-events:none; z-index:1000;
+}
+.hud .left,.hud .right{ display:flex; align-items:center; gap:12px }
+.pill{ background:var(--glass); backdrop-filter:blur(6px); padding:8px 12px; border-radius:999px; box-shadow:0 4px 18px rgba(0,0,0,.25) }
+#timer{ font-weight:700; font-variant-numeric:tabular-nums; letter-spacing:.5px; font-size:20px }
+.btn-mini{ pointer-events:auto; background:#1f2937; color:#fff; border:none; border-radius:12px; padding:8px 12px; font-weight:800; cursor:pointer; box-shadow:0 4px 18px rgba(0,0,0,.25) }
+.btn-mini:hover{ filter:brightness(1.1) }
+
+/* หลอดคะแนน */
+#scoreWrap{ pointer-events:auto; }
+.gauge{
+  position:relative; width:380px; max-width:42vw; height:18px;
+  background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.18);
+  border-radius:999px; overflow:hidden;
+}
+.gauge .fill{
+  position:absolute; left:0; top:0; bottom:0; width:0%;
+  background:#10b981;
+  transition: width .18s ease, background-color .18s ease;
+}
+.gauge .label{
+  position:absolute; inset:0; display:grid; place-items:center;
+  font-size:12px; font-weight:900; color:#fff; text-shadow:0 1px 4px rgba(0,0,0,.6);
+  pointer-events:none;
+}
+.gauge .fruit{
+  position:absolute; right:8px; top:50%; transform:translateY(-50%);
+  font-size:16px; pointer-events:none;
+}
+
+/* ====== หน้าจอเริ่ม/จบเกม (อยู่ในเวที) ====== */
+#startScreen{
+  position:absolute; inset:0; display:none;
+  flex-direction:column; align-items:center; justify-content:center;
+  background:rgba(0,0,0,.9);
+  z-index:15000; text-align:center; padding:24px;
+}
+#startTitle{ font-size:clamp(26px,5vw,48px); font-weight:900; margin-bottom:10px }
+#startBtn{
+  margin-top:12px; padding:10px 18px; border:0; border-radius:12px; font-weight:800; cursor:pointer; background:#1f2937; color:#fff
+}
+#startBtn:hover{ filter:brightness(1.1) }
+#countdown{ display:none; font-size:clamp(56px,12vw,120px); font-weight:1000; line-height:1; margin-top:8px }
+
+#overlay{ position:absolute; inset:0; display:grid; place-items:center; background:rgba(0,0,0,.55); visibility:hidden; opacity:0; transition:.25s; z-index:14000 }
+#overlay.show{ visibility:visible; opacity:1 }
+.panel{ background:rgba(20,20,20,.9); border:1px solid rgba(255,255,255,.1); padding:22px 26px; border-radius:20px; min-width:320px; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,.5) }
+.panel h1{ margin:0 0 6px; font-size:28px }
+.panel p{ margin:8px 0 18px; opacity:.85 }
+.btn{ background:#1f2937; color:#fff; border:none; border-radius:12px; padding:10px 16px; font-weight:700; cursor:pointer }
+.btn:hover{ filter:brightness(1.1) }
+.wrong-box{ margin-top:14px; text-align:left }
+.wrong-title{ font-weight:900; font-size:30px; margin-bottom:8px }
+.wrong-list{ display:flex; flex-wrap:wrap; gap:8px; max-height:140px; font-size:28px; overflow:auto }
+.chip{ background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12); padding:6px 10px; border-radius:999px; font-weight:700 }
+
+/* ปุ่มทั้งหมดใน overlay */
+#overlay .btn { padding: 12px 24px; font-size: 20px; font-weight: 900; border-radius: 18px; min-width: 180px; }
+
+/* ====== หน้าซ้อนคู่มือ ====== */
+#guideScreen{
+  position:absolute; inset:0;
+  display:none; align-items:center; justify-content:center;
+  background:url("image/background3.png") center/cover no-repeat;
+  z-index: 20001;
+}
+#guideScreen .guide-wrap{
+  width:min(95%, 1200px);
+  max-height:92%;
+  display:flex; flex-direction:column; gap:10px;
+  align-items:center; justify-content:center;
+}
+#guideScreen img{
+  width:100%; height:auto; max-height:92%;
+  border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,.55); display:block;
+}
+#guideScreen .guide-close{
+  align-self:flex-end; margin-top:8px;
+  background:#1f2937; color:#fff; border:none; border-radius:12px; padding:8px 12px; font-weight:800; cursor:pointer;
+}
+#guideScreen .guide-close:hover{ filter:brightness(1.1) }
+
+/* คะแนนลอย */
+.float{
+  position:absolute; left:0; top:90%; pointer-events:none;
+  font-weight:800; font-size:24px; text-shadow:0 2px 8px rgba(0,0,0,.5); z-index:12000;
+}
+@keyframes rise{ 0%{ transform:translate(-50%,-10px); opacity:0 } 15%{ opacity:1 } 100%{ transform:translate(-50%,-70px); opacity:0 } }
+
+/* ******** ระบบเกม: 3 เลน + kid + คำกลม (ทั้งหมดอยู่ในเวที) ******** */
+#kid{
+  position:absolute; bottom:22px; left:50%;
+  width:200px; height:230px;
+  transform:translateX(-50%);
+  background:url("image/kid.png") center/contain no-repeat;
+  z-index:5; pointer-events:none;
+}
+
+/* กล่องรับคำทับบน kid (สเกลตามเวทีเพราะเป็นลูกของเวที) */
+#acceptBox{
+  position:absolute; left:50%; top:75%;
+  transform:translateX(-50%);
+  display:inline-block;
+  background:#fff; border:2px solid #000; border-radius:14px; z-index:6;
+  box-shadow:0 8px 24px rgba(0,0,0,.35); pointer-events:none;
+}
+#acceptBox .txt{
+  font-weight:900; letter-spacing:.3px;
+  font-size:36px; white-space:nowrap; color:#000; padding:4px 14px;
+}
+
+#catchLine{ display:none }
+
+/* วงคำ */
+.word{
+  position:absolute; top:-160px; left:0;
+  width:150px; height:150px; border-radius:50%;
+  background:rgba(0,0,0,.48);
+  border:2px solid rgba(255,255,255,.28);
+  box-shadow:0 10px 22px rgba(0,0,0,.6);
+  user-select:none; cursor:default; will-change:transform;
+  overflow:visible; z-index:2;
+}
+.word .inner{ position:relative; width:100%; height:100% }
+
+/* ผลไม้กลางวง */
+.word .fruit{
+  position:absolute; left:50%; top:32%;
+  transform:translate(-50%, -50%);
+  font-size:66px; line-height:1; pointer-events:none;
+}
+
+/* ข้อความในวง */
+.word .label{
+  position:absolute; left:50%; top:60%; transform:translateX(-50%);
+  font-weight:900; text-align:center; text-shadow:0 2px 6px rgba(0,0,0,.8);
+  font-size:36px; white-space:nowrap; overflow:visible; color:#fff;
+}
+
+/* คะแนนสะสม (ใต้รูป kid) */
+.accum{
+  font-weight:900; color:#ffd700; text-shadow:0 1px 6px rgba(0,0,0,.35);
+  font-size:22px; padding:6px 12px; background:rgba(0,0,0,.45); border-radius:12px;
+}
+
+/* ปุ่ม Mute (อยู่นอกเวทีได้ แต่ให้ซ้อนสูง) */
+#muteBtn{
+  position:fixed; right:12px; bottom:12px; width:44px; height:44px; border-radius:999px;
+  background:rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.3); color:#fff;
+  font-size:18px; line-height:1; display:grid; place-items:center; cursor:pointer; z-index:30000;
+}
+</style>
+</head>
+<body>
+  <div id="game" aria-label="สนามเกม">
+    <!-- ===== เวทีคงที่ (ทุกอย่างต้องอยู่ในนี้เพื่อสเกลพร้อมกัน) ===== -->
+    <div id="stage">
+      <!-- ✅ กล้องเต็มจอภายในเวที -->
+      <div id="camFull" aria-hidden="true">
+        <video id="camFullVid" autoplay playsinline muted></video>
+      </div>
+
+      <!-- ตัวละคร + กล่องรับ -->
+      <div id="kid" aria-hidden="false">
+        <div id="acceptBox" role="note" aria-label="กล่องรับคำ">
+          <div class="txt" id="ruleLabel">แม่ กก</div>
+        </div>
+      </div>
+
+      <!-- Landing = เมนูเลือกด่าน -->
+      <div id="landing" role="dialog" aria-modal="true">
+        <div class="brand"><img src="image/banner3.png" alt="Banner"></div>
+        <div class="level-menu">
+          <button class="levelBtn" data-level="0">มาตราตัวสะกด แม่ กก</button>
+          <button class="levelBtn" data-level="1">มาตราตัวสะกด แม่ กด</button>
+          <button class="levelBtn" data-level="2">มาตราตัวสะกด แม่ กน</button>
+          <button class="levelBtn" data-level="3">มาตราตัวสะกด แม่ กบ</button>
+          <button class="levelBtn" id="guideBtn">กติกาการเล่น 📋</button>
+        </div>
+      </div>
+
+      <!-- หน้าจอเริ่ม -->
+      <div id="startScreen">
+        <div id="startTitle">ภารกิจ: ขยับไปรับคำให้ได้มากที่สุด</div>
+        <button id="startBtn">เริ่ม</button>
+        <div id="countdown">3</div>
+      </div>
+
+      <!-- หน้าซ้อน: คู่มือ -->
+      <div id="guideScreen">
+        <div class="guide-wrap">
+          <img src="image/guide.png" alt="คู่มือเกม">
+          <button id="guideBack" class="btn-mini guide-close">เมนูหลัก</button>
+        </div>
+      </div>
+
+      <!-- HUD + เกจคะแนน -->
+      <div class="hud">
+        <div class="left">
+          <div class="stack">
+            <div class="pill" id="timer">02:00</div>
+            <div style="display:flex; gap:8px;">
+              <button id="pauseBtn" class="btn-mini">⏸ หยุด</button>
+              <button id="quickRestart" class="btn-mini">กลับสู่หน้าหลัก</button>
+            </div>
+          </div>
+        </div>
+        <div class="right">
+          <div id="scoreWrap" class="pill" style="padding:10px 12px;">
+            <div class="gauge" aria-label="หลอดคะแนน">
+              <div class="fill" id="scoreFill"></div>
+              <div class="label"><span id="scoreText">0</span>%</div>
+              <div class="fruit" id="scoreFruit">🍎</div>
+            </div>
+          </div>
+          <div class="stack" style="align-items:flex-end">
+            <div id="accumWrap" class="accum">คะแนนสะสม: <b id="accumVal">0</b></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- จบเกม -->
+      <div id="overlay">
+        <div class="panel">
+          <h1 id="endTitle">หมดเวลา!</h1>
+          <p>คะแนนสุดท้าย: <b id="finalScore">0</b>%</p>
+          <p id="accumSummary" style="display:none; color:#ffd700; font-weight:900;">
+            คะแนนสะสมรวม (4 รอบ): <b id="accumTotal">0</b>
+          </p>
+          <div class="wrong-box" style="display:none;">
+            <div class="wrong-title">คำที่เก็บมาผิด</div>
+            <div id="wrongList" class="wrong-list"></div>
+          </div>
+          <div class="actions">
+            <button class="btn" id="restartBtn">เริ่มใหม่</button>
+            <button class="btn" id="selectLevelBtn">เลือกด่าน</button>
+            <button class="btn" id="nextLevelBtn">ด่านถัดไป</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ✅ พรีวิวกล้องเล็ก (ซ่อนไว้) -->
+      <div id="camWrap" aria-hidden="true" style="display:none;">
+        <video id="camPreview" autoplay playsinline muted></video>
+        <canvas id="camOverlay" style="position:absolute; inset:0; pointer-events:none;"></canvas>
+      </div>
+    </div> <!-- /#stage -->
+  </div> <!-- /#game -->
+
+  <!-- เสียง -->
+  <audio id="hitSound" preload="auto"></audio>
+  <audio id="winSound" preload="auto"></audio>
+  <audio id="bgm" preload="auto"></audio>
+
+  <!-- ปุ่ม Mute (ไว้นอกเวที) -->
+  <button id="muteBtn" aria-pressed="false" title="Mute / Unmute">🔊</button>
+
+<!-- ====== สคริปต์สเกลเวทีตามจอ (สำคัญ!) ====== -->
+<script>
+(function(){
+  const root = document.documentElement;
+  function fit(){
+    const STAGE_W = 1280, STAGE_H = 720;
+    const scale = Math.min(window.innerWidth / STAGE_W, window.innerHeight / STAGE_H);
+    root.style.setProperty('--stage-scale', scale);
+  }
+  window.addEventListener('resize', fit, {passive:true});
+  window.addEventListener('orientationchange', fit);
+  fit();
+})();
+</script>
+
+<!-- ควบคุม Mute -->
+<script>
+(function(){
+  const muteBtn = document.getElementById('muteBtn');
+  if(!muteBtn) return;
+  let isMuted = false;
+  function applyMute(m){
+    isMuted = !!m;
+    document.querySelectorAll('audio').forEach(a => {
+      a.muted = isMuted;
+      if(isMuted){ a.setAttribute('muted',''); } else { a.removeAttribute('muted'); }
+    });
+    muteBtn.setAttribute('aria-pressed', String(isMuted));
+    muteBtn.textContent = isMuted ? '🔇' : '🔊';
+  }
+  muteBtn.addEventListener('click', () => applyMute(!isMuted));
+})();
+</script>
+
+<!-- ✅ ระบบติดตามศีรษะ (ย้ายทุกอ้างอิงไปที่เวที) -->
+<script>
+(function(){
+  // ปุ่มสลับ
+  const motionBtn = document.createElement('button');
+  Object.assign(motionBtn, { id:'motionBtn', innerText:'📷: Off', title:'เปิด/ปิด การติดตามศีรษะ' });
+  Object.assign(motionBtn.style, {
+    position:'fixed', right:'64px', bottom:'12px', width:'44px', height:'44px',
+    borderRadius:'999px', background:'rgba(0,0,0,.45)', border:'1px solid rgba(255,255,255,.3)',
+    color:'#fff', fontSize:'18px', display:'grid', placeItems:'center', cursor:'pointer', zIndex:30000
+  });
+  document.body.appendChild(motionBtn);
+
+  const stage   = document.getElementById('stage');
+  const camWrap = document.getElementById('camWrap');
+  const overlay = document.getElementById('camOverlay');
+  const camFull = document.getElementById('camFull');
+  const camFullVid = document.getElementById('camFullVid');
+  const camPreview = document.getElementById('camPreview');
+
+  // วิดีโอซ่อน
+  const video = document.createElement('video');
+  video.autoplay = true; video.playsInline = true; video.muted = true; video.style.display='none';
+  document.body.appendChild(video);
+
+  // สถานะ
+  let stream=null, enabled=false, rafId=0, heartbeatId=0, watchdogId=0;
+  const MIRROR = true;
+
+  // ตัวตรวจจับ
+  const hasFace = 'FaceDetector' in window;
+  const detector = hasFace ? new FaceDetector({fastMode:true,maxDetectedFaces:1}) : null;
+
+  // Motion fallback
+  const W=128, H=96;
+  const cvs=document.createElement('canvas'); cvs.width=W; cvs.height=H;
+  const ctx=cvs.getContext('2d',{willReadFrequently:true});
+  let prev=null, prevCxNorm=null, prevTs=null;
+
+  // พารามิเตอร์
+  const ROI_Y_MIN=0.20, ROI_Y_MAX=0.85, LUMA_MIN=30;
+  const SMOOTH_ALPHA=0.35, PERSIST_FR=3;
+  const LEFT_ENTER=0.40, RIGHT_ENTER=0.60;
+  const LEFT_COMMIT=0.35, RIGHT_COMMIT=0.65;
+  const MIN_BLOB_AREA=0.003, SPEED_THRESH=0.004;
+
+  // เลน
+  let currentLane=1, pendingLane=null, persistCount=0, smoothX=0.5;
+  let targetLane=1, lastLockTs=0;
+
+  function sendLane(l){
+    if (window.__GAME__?.__isRunning?.()){
+      window.__GAME__.moveLane?.(l);
+    }
+  }
+  function commitLane(cxNorm){
+    let target=currentLane;
+    if (cxNorm < LEFT_ENTER) target=0;
+    else if (cxNorm > RIGHT_ENTER) target=2;
+    else if (cxNorm > 0.45 && cxNorm < 0.55) target=1;
+
+    if (target!==currentLane){
+      if (pendingLane!==target){ pendingLane=target; persistCount=1; }
+      else persistCount++;
+      const ok =
+        (pendingLane===0 && cxNorm<=LEFT_COMMIT) ||
+        (pendingLane===2 && cxNorm>=RIGHT_COMMIT) ||
+        (pendingLane===1 && cxNorm>0.45 && cxNorm<0.55);
+      if (ok && persistCount>=PERSIST_FR){
+        currentLane=pendingLane; pendingLane=null; persistCount=0;
+        targetLane=currentLane;
+        sendLane(currentLane);
+      }
+    } else { pendingLane=null; persistCount=0; targetLane=currentLane; }
+  }
+
+  function avgLuma(imgData){
+    const d=imgData.data; let s=0, n=0;
+    for(let i=0;i<d.length;i+=4){ s += (0.2126*d[i] + 0.7152*d[i+1] + 0.0722*d[i+2]); n++; }
+    return s/n;
+  }
+
+  function motionHeadCenter(){
+    if (MIRROR){ ctx.save(); ctx.scale(-1,1); ctx.drawImage(video,-W,0,W,H); ctx.restore(); }
+    else { ctx.drawImage(video,0,0,W,H); }
+    const img=ctx.getImageData(0,0,W,H), d=img.data;
+    const y0=Math.floor(H*ROI_Y_MIN), y1=Math.floor(H*ROI_Y_MAX);
+    let sum=0,sumX=0,pix=0;
+    if(prev && prev.length===d.length){
+      for(let y=y0;y<y1;y++){
+        for(let x=0;x<W;x++){
+          const i=(y*W+x)*4;
+          const diff=(Math.abs(d[i]-prev[i])+Math.abs(d[i+1]-prev[i+1])+Math.abs(d[i+2]-prev[i+2]))/3;
+          if (diff>18){ sum+=diff; sumX+=diff*x; pix++; }
+        }
+      }
+    }
+    prev = new Uint8ClampedArray(d);
+    const roiPixels = W*(y1-y0);
+    const area = pix/roiPixels;
+    if (area < MIN_BLOB_AREA) return null;
+
+    const cx = sum ? (sumX/sum) : null;
+    if (cx==null) return null;
+    const now = performance.now();
+    const cxNorm = cx/W;
+
+    let okSpeed = true;
+    if (prevCxNorm!=null && prevTs!=null){
+      const dt = Math.max(1, now-prevTs);
+      const v = Math.abs(cxNorm - prevCxNorm) / dt; // per ms
+      okSpeed = v >= SPEED_THRESH/1000;
+    }
+    prevCxNorm=cxNorm; prevTs=now;
+    if (!okSpeed) return null;
+    return cxNorm;
+  }
+
+  async function loop(){
+    if(!enabled||!stream) return;
+    try{
+      let usedFace=false;
+      ctx.drawImage(video,0,0,W,H);
+      const luma = avgLuma(ctx.getImageData(0,0,W,H));
+      const enoughLight = luma >= LUMA_MIN;
+
+      if (hasFace && enoughLight){
+        const faces = await detector.detect(video);
+        if (faces && faces.length){
+          const f = faces[0].boundingBox;
+          let cx = f.x + f.width/2;
+          const vw=video.videoWidth||640;
+          let cxNorm=cx/vw; if(MIRROR) cxNorm = 1 - cxNorm;
+          smoothX = smoothX + SMOOTH_ALPHA*(cxNorm - smoothX);
+          commitLane(smoothX);
+          lastLockTs = performance.now();
+          usedFace = true;
+        }
+      }
+      if (!usedFace){
+        const cxNorm = motionHeadCenter();
+        if (cxNorm!=null){
+          smoothX = smoothX + SMOOTH_ALPHA*(cxNorm - smoothX);
+          commitLane(smoothX);
+          lastLockTs = performance.now();
+        }
+      }
+    }catch(e){}
+    rafId = requestAnimationFrame(loop);
+  }
+
+  async function heartbeat(){
+    if(!enabled||!stream) return;
+    const now = performance.now();
+    if (now - lastLockTs <= 450){ sendLane(currentLane); return; }
+    try{
+      if (hasFace){
+        const faces = await detector.detect(video);
+        if (faces && faces.length){
+          const f=faces[0].boundingBox;
+          let cx=f.x+f.width/2, vw=video.videoWidth||640;
+          let cxNorm=cx/vw; if(MIRROR) cxNorm=1-cxNorm;
+          smoothX = smoothX + 0.6*(cxNorm - smoothX);
+          commitLane(smoothX);
+          lastLockTs = now; return;
+        }
+      }
+      const cxNorm = motionHeadCenter();
+      if (cxNorm!=null){
+        smoothX = smoothX + 0.6*(cxNorm - smoothX);
+        commitLane(smoothX);
+        lastLockTs = now; return;
+      }
+    }catch(e){}
+    sendLane(currentLane);
+  }
+
+  function watchdog(){
+    if(!enabled||!stream) return;
+    const gameLane = window.__GAME__?.getLane?.();
+    if (typeof gameLane==='number' && gameLane!==targetLane){
+      sendLane(targetLane);
+    }
+  }
+
+  async function enable(){
+    if(enabled) return;
+    try{
+      stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user' }, audio:false });
+      video.srcObject = stream;
+      camPreview.srcObject = stream;
+      if (camFullVid){
+        camFullVid.srcObject = stream;
+        await camFullVid.play().catch(()=>{});
+        camFull.style.display = 'block';
+      }
+      await video.play().catch(()=>{}); await camPreview.play().catch(()=>{});
+      enabled=true; motionBtn.innerText='📷: On';
+      prev=null; prevCxNorm=null; prevTs=null; pendingLane=null; persistCount=0; targetLane=currentLane; lastLockTs=0;
+      cancelAnimationFrame(rafId); rafId=requestAnimationFrame(loop);
+      clearInterval(heartbeatId); heartbeatId=setInterval(heartbeat, 500);
+      clearInterval(watchdogId);  watchdogId=setInterval(watchdog, 300);
+    }catch(err){
+      alert('เปิดกล้องไม่ได้: '+(err?.message||err));
+    }
+  }
+  function disable(){
+    enabled=false; motionBtn.innerText='📷: Off';
+    cancelAnimationFrame(rafId);
+    clearInterval(heartbeatId); clearInterval(watchdogId);
+    if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+    video.srcObject=null; camPreview.pause?.(); camPreview.srcObject=null;
+    if (camFullVid){ camFullVid.pause?.(); camFullVid.srcObject=null; }
+    if (camFull){ camFull.style.display='none'; }
+  }
+
+  motionBtn.addEventListener('click', ()=>{ enabled?disable():enable(); });
+  window.addEventListener('beforeunload', disable);
+
+  if(!window.__GAME__) window.__GAME__ = {};
+  if(!window.__GAME__.__isRunning) window.__GAME__.__isRunning = ()=>true;
+})();
+</script>
+
+<!-- ====== ระบบเกม (ทุกตำแหน่งอิง STAGE_W/H และผูกกับ #stage) ====== -->
+<script>
+(() => {
+  const stage = document.getElementById('stage');
+  const game  = document.getElementById('game'); // ไว้ใช้ขอบจอจริงบ้าง (ไม่คำนวณตำแหน่ง)
+  const timerEl = document.getElementById('timer');
+  const overlay = document.getElementById('overlay');
+  const endTitleEl = document.getElementById('endTitle');
+  const finalScoreEl = document.getElementById('finalScore');
+  const restartBtn = document.getElementById('restartBtn');
+  const quickRestart = document.getElementById('quickRestart');
+  const selectLevelBtn = document.getElementById('selectLevelBtn');
+  const nextLevelBtn = document.getElementById('nextLevelBtn');
+
+  const hitSound = document.getElementById('hitSound');
+  const theWin = document.getElementById('winSound');
+  const bgm = document.getElementById('bgm');
+
+  if (hitSound) { hitSound.src = "image/fruit.mp3"; hitSound.volume = 1.0; }
+  if (theWin)   { theWin.src  = "image/win2.mp3";  theWin.volume  = 1.0; }
+  if (bgm)      { bgm.volume  = 0.35; }
+  const BGM_TRACKS = ["image/bgm4.mp3","image/bgm5.mp3","image/bgm6.mp3"];
+  let bgmIndex = 0;
+  function playBgm(){
+    if (!bgm || !BGM_TRACKS.length) return;
+    bgm.src = BGM_TRACKS[bgmIndex];
+    bgm.currentTime = 0;
+    bgm.play().catch(()=>{});
+    bgm.onended = () => { bgmIndex = (bgmIndex + 1) % BGM_TRACKS.length; playBgm(); };
+  }
+
+  const startScreen  = document.getElementById('startScreen');
+  const startTitle   = document.getElementById('startTitle');
+  const startBtn     = document.getElementById('startBtn');
+  const countdownEl  = document.getElementById('countdown');
+
+  const wrongListEl = document.getElementById('wrongList');
+  const wrongBoxEl  = document.querySelector('.wrong-box');
+
+  const kid = document.getElementById('kid');
+  const ruleLabelEl = document.getElementById('ruleLabel');
+
+  const scoreFill = document.getElementById('scoreFill');
+  const scoreText = document.getElementById('scoreText');
+  const scoreFruit = document.getElementById('scoreFruit');
+  const fruits = ["🍎","🍌","🍇","🍉","🍍","🍓","🍑","🍒","🥭","🫐","🥝","🍐","🍊"];
+
+  // ===== ค่ามาตรฐานเวที
+  const STAGE_W = 1280, STAGE_H = 720;
+
+  function stageScale(){
+    const r = stage.getBoundingClientRect();
+    return r.width / STAGE_W;
+  }
+
+  /* ====== คอนฟิกด่าน ====== */
+  const BASE1_CORRECT = [
+    "บริจาค","พยัคฆ์","วิหค","ประโยค","ภาค","ทุกข์","คึกคัก","เลข","โชค","เมฆ","โรค","สุข","มุขตลก","หมวก","พรรค","โศกเศร้า","ยักษ์",
+    "คุก","ศุกร์","ผูก","ศอก","นาค","นาก","จุกจิก","บุกเบิก","เลิก","ยักยอก","เหยือก","ทาก","พักตร์","เผือก","ปลูก",
+    "เชือก","สะดวก","แปลกแยก","เด็ก","หงอก","ฉีก","กระชาก","โลก","บริโภค","อยาก","สนุก","ฉลาก","ศักดิ์ศรี","ผัก","ลวก","ชก","กระดูก","กระดก","ฟัก","นก",
+    "ตกใจ","หยิก","พัก","ดก","หมาก","เปลือก","ชอล์ก","หมัก","สุนัข","นอกคอก","จมูก","แตกแยก"
+  ];
+  const BASE1_WRONG = [
+    "พืช","ตำรวจ","กอด","พูด","หมาย","กรรม","บทบาท","ชีวิต","กำหนด","ปรากฏ","ประเทศ","โอกาส","พิษ","ญาติ","พุทธ",
+    "กระดาษ","อาจารย์","สามารถ","โกรธ","โปรด","รถ","รส","พัด","อิฐ","บัตร","บาด","ปิด","เปิด","ปลด","ปลิด","พลาด","พับ","พับเพียบ",
+    "ฟาด","ฟัด","มัด","มอด","ยอด","ลอด","ลวด","ลูด","อวด","อัตโนมัติ","อูฐ","ชาติ","บาท","วาฬ","จาน","เขียน","ต้นไม้","บ้าน","บิน",
+    "ดิน","หิน","สวน","เรียน","คำนวณ","บริการ","โบราณ","วันเพ็ญ","ทหาร","รุ่งเรือง","ปรับตัว","มือถือ","ลด","เพิ่ม","สับ","เปลี่ยน","ปราสาท","สัปดาห์","ศพ","ศาสตร์","ชอบ","มอบ",
+    "หมอบ","โลภ","ทัพพี","กอล์ฟ","ยีราฟ","บาป","รูป","อพยพ"
+  ];
+
+  const BASE2_CORRECT = [
+    "พืช","ตำรวจ","กอด","พูด","จอดรถ","ประวัติ","บทบาท","ชีวิต","กำหนด","ปรากฏ","ประเทศ","โอกาส","พิษ","กฎ","พุทธ",
+    "กระดาษ","ชาติ","สามารถ","โกรธ","โปรด","บัตร","รสชาติ","พัด","อิฐ","ถนัด","บาด","ปิด","เปิด","ปลด","ปลิด","ผิดพลาด","สิทธิ์","บริสุทธิ์","บริษัท",
+    "ฟาด","ฟัด","มัด","มอด","ยอด","เลือด","ลวด","รัฐ","อวด","อัตโนมัติ","อูฐ","สัตว์","ญาติ","มีดบาด","ทิศ","สมุด","เกษตร","เพศ","อากาศ",
+    "ตลาด","ตลอด","สนิท","เสด็จ","เผ็ด","ขี้เกียจ","เกลียด","โกรธ","ประดุจ","วัตถุ","พยาธิ","อาทิตย์","ครุฑ","ปราสาท","อาพาธ","ตรวจ","เท็จ","บำเหน็จ","สำรวจ","อิจฉา","ธุรกิจ","ญาติ",
+    "เพชร","บวช","ก๊าซ","ประโยชน์","อาวุธ","พิศวาส","เศษ","เขต","ฤทธิ์เดช"
+  ];
+
+  const BASE2_WRONG = [
+    "บริจาค","พยัคฆ์","วิหค","ประโยค","ภาค","ทุกข์","คึกคัก","ราคา","โชค","เมฆ","โรค","สุข","มุขตลก","หมวก","พรรค","เลข","ยักษ์",
+    "คุก","ศุกร์","ผูก","ศอก","นาค","นาก","จุกจิก","บุกเบิก","เลิก","ยักยอก","เหยือก","ทาก","พักตร์","เผือก","ปลูก",
+    "เชือก","สะดือ","แปลกแยก","เด็ก","หงอก","ฉีก","กระชาก","โลก","บริโภค","อยาก","สนุก","ฉลาก","นาที","ผัก","ลวก","ชก","กระดูก","เยื่อใย","ฟัก","นก",
+    "ตกใจ","หยิก","พัก","ดก","อก","เปลือก","วาฬ","จาน","เขียน","ต้นไม้","บ้าน","บิน","ดิน","หิน","สวน","เรียน","คำนวณ","บริการ","โบราณ","วันเพ็ญ","ทหาร",
+    "บุญคุณ","อาจารย์","ธนาคาร","เสื้อผ้า","มูมมาม","เพียร","คนพาล","อาหาร","ตำนาน","สมุน","เหมาะเจาะ","ล้อ","ต้นตาล","พันธุ์","เหม็น","มะม่วง"
+  ];
+
+  const BASE3_CORRECT = [
+    "กิน","คน","น้ำตาล","ผลไม้","เพื่อน","นอน","เข็น","รางวัล","บันได","สัญจร","พิณ","ประมาณ","พยาบาล",
+    "วาฬ","จาน","เขียน","ต้นไม้","บ้าน","บิน","ร้อนรน","สวน","เรียน","คำนวณ","บริการ","วันเพ็ญ","ทหาร",
+    "ปัญญา","อาจารย์","ธนาคาร","ลำธาร","บุญคุณ","เพียร","คนพาล","อาหาร","ตำนาน","สมุน","ชำนาญ","มาร","พันธุ์","เหม็น",
+    "วนเวียน","ชุลมุน","วิณญาณ","ทมิฬ","เณร","โบราณ","สั่นคลอน","อัญชัน","เหรียญ","การคูณ","หมื่นแสน","สัญญาณ","ถ่านหิน","สุวรรณ","พรรษา",
+    "เกสร","กุญชร","ก้อนหิน","กระเด็น","ฉันเพล","การบ้าน","หรรษา","วันจันทร์","ศีล","ศาล","มวลสาร"
+  ];
+  const BASE3_WRONG = [
+    "กบ","จบ","หับ","กราบ","กลับ","คาปิบาร่า","ทัพ","ศัพท์","ภาพ","กราฟ","ลีฟ","ทราบ","ข่าว","ประทับ","ทาส","อวกาศ",
+    "ใบเตย","กล่อง","สมอง","สมัย","ฉลาก","ฉลอง","พิพาท","ปรับ","ปลอม","กำหนด","ปรากฏ","ประเทศ","โอกาส","พิษ","กฎหมาย","พุทธ",
+    "กระดาษ","ผลิต","สามารถ","โกรธ","โปรด","รถ","รส","พัด","อิฐ","บัตร",
+    "บริจาค","พยัคฆ์","วิหค","ประโยค","ภาค","ทุกข์","คึกคัก","เลข","โชค","เมฆ","โรค","สุข","มุขตลก","หมวก","วังเวง","แมวน้ำ",
+    "คลุกเคล้า","ศุกร์","ผูก","ศอก","นาค","นาก","จุกจิก","ฮิปโป","เลิก","ยักยอก","เก้าอี้","ทุงทุงทุง ซาฮูร์ ","สับปะรด","มะระ","เพศ","ศพ",
+    "ธรรมะ","ทองคำ","มอบ","หมอบ","กะเพรา","ทัพพี","กอล์ฟ","บาป","รูป","มังคุด","ลองกอง"
+  ];
+
+  const BASE4_CORRECT = [
+    "กบ","จบ","หับ","กราบ","กลับ","กลับบ้าน","ทัพ","ศัพท์","ภาพ","กราฟ","ทวีป","ทราบ","บาป","ประทับ","ประทับ","ทะเลสาบ",
+    "เคลือบ","จูบ","รับทราบ","แสบ","รวบ","แอบ","ระเบียบ","ปรับ","คำศัพท์","อาบน้ำ","ซุบซิบ","คำสาป","หีบ",
+    "สับ","ชอบ","หาบ","สัปดาห์","ศพ","รูป","ดาบ","มอบ",
+    "หมอบ","โลภ","ทัพพี","กอล์ฟ","ยีราฟ","หนีบ","รูปภาพ","อพยพ","อาชีพ","เห็บ","เล็บมือ","ประกอบ","ธูป","รอบคอบ","เหยียบ",
+    "กบ","ตะเกียบ","เคารพ","โทรศัพท์","กระสอบ","สุภาพ","เปรียบเทียบ","หุบเขา","บวบ","ลิฟต์","หยิบจับ","สูบ","คลิป","ภพ","คำตอบ",
+    "คับแคบ","ลพบุรี","รูปแบบ","ระเบียบ","จอบ","ตะขาบ","แหบ","สลับ","ลาภ","สรุป"
+  ];
+
+  const BASE4_WRONG = [
+    "พืช","ตำรวจ","กอด","พูด","แม่หม้าย","ซื่อสัตย์","บทบาท","ชีวิต","กำหนด","ปรากฏ","ประเทศ","โอกาส","พิษ","สัตว์","พุทธ",
+    "กระดาษ","อาจารย์","สามารถ","โกรธ","โปรด","รถไถ","รสชาติ","ลม","อิฐ","บัตร",
+    "เด็ก","หงอก","ฉีก","กระชาก","โลก","บริโภค","อยาก","สนุก","ฉลาก","ศักดิ์ศรี","ผัก","ลวก","ชก","กระทะ","กระเป๋า","ฟัก","นก",
+    "ตกใจ","หยิก","พัก","กระดูก","อกหัก","เปลือก","วาฬ","จาน","เขียน","ต้นไม้","บ้าน","บิน","ร้อนรน","สวน","เรียน","คำนวณ","บริการ","วันเพ็ญ","ทหาร",
+    "ปัญญา","สิงโต","ตาราเร ตาราลา","ลำธาร","บุญคุณ","เพียร","คนพาล","อาหาร","ตำนาน","มะปราง","องุ่น","มะพร้าว","พิษ","ทางเดิน","โรงเรียน","แว่นตา","กำพร้า","ก้อนหิน"
+  ];
+
+  const LEVELS = [
+    { id:0, name:"มาตราตัวสะกด แม่ กก", ruleText:"แม่ กก", mission:"ภารกิจ : เก็บคำที่สะกดด้วยมาตราตัวสะกด แม่ กก ให้ครบ", correctWords:BASE1_CORRECT, wrongWords:BASE1_WRONG },
+    { id:1, name:"มาตราตัวสะกด แม่ กด", ruleText:"แม่ กด", mission:"ภารกิจ : เก็บคำที่สะกดด้วยมาตราตัวสะกด แม่ กด ให้ครบ", correctWords:BASE2_CORRECT, wrongWords:BASE2_WRONG },
+    { id:2, name:"มาตราตัวสะกด แม่ กน", ruleText:"แม่ กน", mission:"ภารกิจ : เก็บคำที่สะกดด้วยมาตราตัวสะกด แม่ กน ให้ครบ", correctWords:BASE3_CORRECT, wrongWords:BASE3_WRONG },
+    { id:3, name:"มาตราตัวสะกด แม่ กบ", ruleText:"แม่ กบ", mission:"ภารกิจ : เก็บคำที่สะกดด้วยมาตราตัวสะกด แม่ กบ ให้ครบ", correctWords:BASE4_CORRECT, wrongWords:BASE4_WRONG },
+  ];
+  let selectedLevel = 0;
+
+  // ====== คะแนนสะสมข้ามด่าน ======
+  let cumulativeScore = 0;
+  let roundsPlayed   = 0;
+  let lastRunScore   = 0;
+
+  function updateAccum(){
+    const el = document.getElementById('accumVal');
+    if(el) el.textContent = cumulativeScore.toString();
+  }
+
+  function refreshNextButton(){
+    const sumEl = document.getElementById('accumSummary');
+    const totalEl = document.getElementById('accumTotal');
+    if (roundsPlayed < 3){
+      nextLevelBtn.disabled = false;
+      nextLevelBtn.textContent = 'ด่านถัดไป';
+      nextLevelBtn.style.opacity = '1';
+      if(sumEl) sumEl.style.display = 'none';
+      return;
+    }
+    if (roundsPlayed === 3){
+      nextLevelBtn.disabled = false;
+      nextLevelBtn.textContent = 'สรุปคะแนนสะสม';
+      nextLevelBtn.style.opacity = '1';
+      if(sumEl) sumEl.style.display = 'none';
+      return;
+    }
+    nextLevelBtn.disabled = true;
+    nextLevelBtn.textContent = 'ครบ 4 รอบแล้ว';
+    nextLevelBtn.style.opacity = '0.6';
+    if (sumEl && totalEl){
+      totalEl.textContent = cumulativeScore.toString();
+      sumEl.style.display = 'block';
+    }
+  }
+
+  let running = false;
+  let spawner = null;
+  let countdown = null;
+  let ended = false;
+
+  const stageSeconds = 120;
+  const LANES = [0.20, 0.50, 0.80];
+  const WORD_SIZE = 150; // px ในพิกัดเวที
+
+  const MIN_GAP = 160;
+  const SAFE_NEAR_TOP = 280;
+  const MAX_NEAR_TOP_LANES = 2;
+  const SPAWN_INTERVAL = 700;
+
+  const GAIN_CORRECT = 10;
+  const LOSS_WRONG   = 15;
+
+  const HITBOX_SHRINK_X = 0.60;
+  const HITBOX_SHRINK_Y = 0.30;
+  const HITBOX_OFFSET_Y = 16;
+
+  let gauge = 0;
+
+  let kidLane = 1;
+  function laneX(i){ return Math.round(STAGE_W * LANES[i]); }
+  function placeKid(){
+    const x = laneX(kidLane);
+    kid.style.left = x + 'px';
+    kid.style.transform = 'translateX(-50%)';
+  }
+
+  function fmt(sec){
+    const m = Math.floor(sec/60).toString().padStart(2,'0');
+    const s = (sec%60).toString().padStart(2,'0');
+    return `${m}:${s}`;
+  }
+
+  function setGauge(v){
+    gauge = Math.max(0, Math.min(100, v));
+    scoreFill.style.width = gauge + '%';
+    scoreText.textContent = gauge;
+    if(gauge >= 66) scoreFill.style.backgroundColor = '#10b981';
+    else if(gauge >= 33) scoreFill.style.backgroundColor = '#f59e0b';
+    else scoreFill.style.backgroundColor = '#f97316';
+    if(Math.random() < 0.25){
+      scoreFruit.textContent = fruits[Math.floor(Math.random()*fruits.length)];
+    }
+    if (running && !ended && gauge >= 100){
+      endGame('win');
+    }
+  }
+
+  function floatText(text, x, y, kind){
+    const t = document.createElement('div');
+    t.className = 'float';
+    t.textContent = text;
+    // x,y เป็นพิกัดเวที -> แปลงเป็นจอด้วย scale & offset
+    const r = stage.getBoundingClientRect();
+    const sc = r.width / STAGE_W;
+    t.style.left = (r.left + x*sc) + 'px';
+    t.style.top  = (r.top  + y*sc) + 'px';
+    t.style.color = (kind==='ok') ? 'var(--ok)' : 'var(--bad)';
+    t.style.animation = 'rise 800ms ease-out forwards';
+    document.body.appendChild(t);
+    t.addEventListener('animationend', () => t.remove(), {once:true});
+  }
+
+  function playHit(){
+    try {
+      const a = hitSound.cloneNode(true);
+      a.volume = 1;
+      a.src = hitSound.src;
+      a.play().catch(()=>{});
+    } catch(e){}
+  }
+
+  function canSpawnInLane(lane){
+    const words = [...stage.querySelectorAll('.word')].filter(w => Number(w.dataset.lane) === lane);
+    for(const w of words){
+      const y = parseFloat(w.dataset.y)||-160;
+      if(y < MIN_GAP) return false;
+    }
+    return true;
+  }
+
+  function hasRoomForAnotherLane(){
+    const lanesUsed = new Set();
+    stage.querySelectorAll('.word').forEach(w=>{
+      const y = parseFloat(w.dataset.y)||-160;
+      if(y < SAFE_NEAR_TOP) lanesUsed.add(Number(w.dataset.lane));
+    });
+    return lanesUsed.size < MAX_NEAR_TOP_LANES;
+  }
+
+  /* ====== สำรับคำ ====== */
+  let wordPool = [];
+  let poolIndex = 0;
+
+  function refillPool(){
+    const L = LEVELS[selectedLevel];
+    wordPool = [];
+    L.correctWords.forEach(w => wordPool.push({text:w, value:1}));
+    L.wrongWords.forEach(w => wordPool.push({text:w, value:0}));
+    for(let i = wordPool.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [wordPool[i], wordPool[j]] = [wordPool[j], wordPool[i]];
+    }
+    poolIndex = 0;
+  }
+
+  function makeWord(){
+    if(poolIndex >= wordPool.length){ refillPool(); }
+    const data = wordPool[poolIndex++];
+
+    const node = document.createElement('div');
+    node.className = 'word';
+
+    const inner = document.createElement('div');
+    inner.className = 'inner';
+    const fruit = document.createElement('div');
+    fruit.className = 'fruit';
+    fruit.textContent = fruits[Math.floor(Math.random()*fruits.length)];
+    const label = document.createElement('div');
+    label.className = 'label';
+    label.textContent = data.text;
+
+    node.dataset.value = data.value.toString();
+
+    inner.appendChild(fruit);
+    inner.appendChild(label);
+    node.appendChild(inner);
+    return node;
+  }
+
+  function spawnWord(){
+    if(!running) return;
+    if(!hasRoomForAnotherLane()) return;
+
+    const order = [0,1,2].sort(()=>Math.random()-0.5);
+    let chosen = null;
+    for(const lane of order){
+      if(canSpawnInLane(lane)){ chosen = lane; break; }
+    }
+    if(chosen === null) return;
+
+    const node = makeWord();
+    node.dataset.lane = chosen;
+    node.dataset.y = -160;
+
+    const x = laneX(chosen) - WORD_SIZE/2;
+    node.style.left = x + 'px';
+    node.style.top = (-160) + 'px';
+    stage.appendChild(node); // ⬅️ วางในเวที (จะถูกสเกล)
+  }
+
+  let remain = stageSeconds;
+  function currentSpeed(){ return (remain <= 40) ? 200 : 135; }
+
+  let lastTime = 0;
+  let clickedWrongWords = [];
+
+  function tick(now){
+    const dt = Math.min(0.05, (now - lastTime)/1000);
+    lastTime = now;
+
+    const speed = currentSpeed();
+
+    // === คำนวณ hitbox ใน "พิกัดเวที"
+    const acceptBox = document.getElementById('acceptBox');
+    const hb = acceptBox.getBoundingClientRect();
+    const sr = stage.getBoundingClientRect();
+    const sc = sr.width / STAGE_W;
+
+    const hitW = Math.max(1, (hb.width  * HITBOX_SHRINK_X) / sc);
+    const hitH = Math.max(1, (hb.height * HITBOX_SHRINK_Y) / sc);
+    const hitCx = ((hb.left - sr.left) + hb.width/2) / sc;
+    const hitCy = ((hb.bottom - sr.top) - hitH/2 + HITBOX_OFFSET_Y) / sc;
+
+    const hitLeft   = hitCx - hitW/2;
+    const hitRight  = hitCx + hitW/2;
+    const hitTop    = hitCy - hitH/2;
+    const hitBottom = hitCy + hitH/2;
+
+    stage.querySelectorAll('.word').forEach(node => {
+      let y = parseFloat(node.dataset.y)||-160;
+      y += speed * dt;
+      node.dataset.y = y;
+      node.style.transform = `translateY(${y}px)`;
+
+      const nodeLeft = parseFloat(node.style.left)||0;
+      const wordCenterX = nodeLeft + WORD_SIZE/2;
+      const wordCenterY = y + WORD_SIZE/2;
+      const wordBottomY = y + WORD_SIZE;
+
+      const overlapY = (wordBottomY >= hitTop) && (wordCenterY <= hitBottom);
+      const overlapX = (wordCenterX >= hitLeft) && (wordCenterX <= hitRight);
+
+      if (overlapX && overlapY){
+        const isCorrect = node.dataset.value === '1';
+        if(isCorrect){
+          setGauge(gauge + GAIN_CORRECT);
+          floatText('+'+GAIN_CORRECT, hitCx, hitBottom, 'ok'); // พิกัดเวที
+        }else{
+          setGauge(gauge - LOSS_WRONG);
+          const text = node.querySelector('.label')?.textContent?.trim();
+          if(text) clickedWrongWords.push(text);
+          floatText('-'+LOSS_WRONG, hitCx, hitBottom, 'bad');
+        }
+        playHit();
+        node.remove();
+        return;
+      }
+
+      if(y > STAGE_H + 180){
+        node.remove();
+      }
+    });
+
+    if(running) requestAnimationFrame(tick);
+  }
+
+  function clearWordsAndFloats(){
+    [...stage.querySelectorAll('.word')].forEach(el => el.remove());
+    [...document.querySelectorAll('.float')].forEach(el => el.remove());
+  }
+
+  function startGame(){
+    running = true;
+    ended = false;
+    overlay.classList.remove('show');
+
+    const L = LEVELS[selectedLevel];
+    const titleEl = document.getElementById('startTitle');
+    if (titleEl) titleEl.textContent = L.mission || `ภารกิจ: ${L.name}`;
+    if (ruleLabelEl) ruleLabelEl.textContent = L.ruleText;
+
+    lastRunScore = 0;
+    updateAccum();
+
+    const sumEl = document.getElementById('accumSummary');
+    if(sumEl) sumEl.style.display = 'none';
+
+    refillPool();
+
+    setGauge(0);
+    clickedWrongWords = [];
+    if (wrongListEl) wrongListEl.innerHTML = '';
+    if (wrongBoxEl)  wrongBoxEl.style.display = 'none';
+    clearWordsAndFloats();
+    placeKid();
+
+    try { playBgm(); } catch(e){}
+
+    remain = stageSeconds;
+    timerEl.textContent = fmt(remain);
+    if(countdown) clearInterval(countdown);
+    countdown = setInterval(() => {
+      if(!running) return;
+      remain--;
+      timerEl.textContent = fmt(remain);
+      if(remain <= 0){ endGame('time'); }
+    }, 1000);
+
+    if(spawner) clearInterval(spawner);
+    spawner = setInterval(spawnWord, SPAWN_INTERVAL);
+
+    lastTime = performance.now();
+    requestAnimationFrame(tick);
+  }
+
+  function endGame(reason='time'){
+    if (ended) return;
+    ended = true;
+    running = false;
+    clearInterval(countdown);
+    clearInterval(spawner);
+    finalScoreEl.textContent = gauge.toString();
+
+    lastRunScore = gauge;
+    endTitleEl.textContent = (reason === 'win') ? 'เก่งมาก! คะแนนเต็ม 🎉' : 'หมดเวลา!';
+
+    if (wrongListEl){
+      if (clickedWrongWords.length === 0){
+        if (wrongBoxEl) wrongBoxEl.style.display = 'none';
+      } else {
+        const seen = new Set();
+        const unique = clickedWrongWords.filter(w => (seen.has(w) ? false : (seen.add(w), true)));
+        wrongListEl.innerHTML = unique.map(w => `<span class="chip">${w}</span>`).join('');
+        if (wrongBoxEl) wrongBoxEl.style.display = 'block';
+      }
+    }
+
+    try{ if (theWin) { theWin.currentTime = 0; theWin.play().catch(()=>{}); } }catch(e){}
+    try{ if(bgm){ bgm.pause(); bgm.currentTime = 0; } }catch(e){}
+
+    refreshNextButton();
+    overlay.classList.add('show');
+  }
+
+  // แผนที่คลิก: แปลงพิกัดจอ -> พิกัดเวที
+  function screenToStageX(clientX){
+    const r = stage.getBoundingClientRect();
+    const sc = r.width / STAGE_W;
+    return (clientX - r.left) / sc; // พิกัดเวที
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if(!running) return;
+    const k = e.key.toLowerCase();
+    if(k === 'arrowleft' || k === 'a'){ kidLane = Math.max(0, kidLane-1); placeKid(); }
+    else if(k === 'arrowright' || k === 'd'){ kidLane = Math.min(2, kidLane+1); placeKid(); }
+  });
+
+  stage.addEventListener('click', (e) => {
+    if(!running) return;
+    const xStage = screenToStageX(e.clientX);
+    if (xStage < STAGE_W/3) kidLane = 0;
+    else if (xStage < (2*STAGE_W/3)) kidLane = 1;
+    else kidLane = 2;
+    placeKid();
+  });
+
+  window.addEventListener('resize', placeKid);
+
+  restartBtn.addEventListener('click', () => { startGame(); });
+
+  selectLevelBtn.addEventListener('click', () => {
+    overlay.classList.remove('show');
+    clearWordsAndFloats();
+    cumulativeScore = 0; roundsPlayed = 0; lastRunScore = 0; updateAccum();
+    const landing = document.getElementById('landing');
+    const startScreen = document.getElementById('startScreen');
+    if (landing){ landing.classList.remove('hide'); }
+    if (startScreen){ startScreen.style.display = 'none'; }
+  });
+
+  nextLevelBtn.addEventListener('click', () => {
+    if (roundsPlayed < 3) {
+      cumulativeScore += lastRunScore; roundsPlayed++; updateAccum();
+      selectedLevel = (selectedLevel + 1) % LEVELS.length;
+      overlay.classList.remove('show');
+      openStartForLevel(true);
+      return;
+    }
+    if (roundsPlayed === 3) {
+      cumulativeScore += lastRunScore; roundsPlayed++; updateAccum();
+      const sumEl = document.getElementById('accumSummary');
+      const totalEl = document.getElementById('accumTotal');
+      if (sumEl && totalEl){ totalEl.textContent = cumulativeScore.toString(); sumEl.style.display = 'block'; }
+      endTitleEl.textContent = 'สรุปคะแนนสะสม';
+      finalScoreEl.textContent = lastRunScore.toString();
+      refreshNextButton();
+      return;
+    }
+  });
+
+  function openStartForLevel(autoCountdown = true){
+    const L = LEVELS[selectedLevel];
+    if(startTitle){
+      startTitle.textContent = (L && L.mission) ? L.mission : `ภารกิจ: ${L?.name || ''}`;
+    }
+    if(startScreen) startScreen.style.display = 'flex';
+    if(startBtn) startBtn.style.display = 'none';
+    if(!autoCountdown) return;
+    if(countdownEl){
+      let n = 3;
+      countdownEl.textContent = n;
+      countdownEl.style.display = 'block';
+      const itv = setInterval(() => {
+        n--;
+        if(n > 0){ countdownEl.textContent = n; }
+        else{
+          clearInterval(itv);
+          if(startScreen) startScreen.style.display = 'none';
+          startGame();
+        }
+      }, 1000);
+    }
+  }
+
+  /* API ให้ Landing ใช้ + motion เรียกย้ายเลนได้ */
+  window.__GAME__ = {
+    startGame,
+    setSelectedLevel: (i)=>{ selectedLevel = i|0; },
+    getLevel: (i)=> LEVELS[i],
+    getMissionFor: (i)=> (LEVELS[i] && LEVELS[i].mission) ? LEVELS[i].mission : '',
+    moveLane: (lane)=>{ if([0,1,2].includes(lane)){ kidLane = lane; placeKid(); } },
+    __isRunning: () => running,
+    getLane: () => kidLane
+  };
+
+  /* Pause / Resume (แก้ให้ไม่ค้าง) */
+  let paused = false;
+  function pauseGame(){ if (!running) return; paused = true; running = false; clearInterval(countdown); clearInterval(spawner); }
+  function resumeGame(){
+    if (!paused) return; paused = false; running = true;
+    lastTime = performance.now();
+    countdown = setInterval(() => {
+      if(!running) return;
+      remain--;
+      timerEl.textContent = fmt(remain);
+      if(remain <= 0){ endGame('time'); }
+    }, 1000);
+    spawner = setInterval(spawnWord, SPAWN_INTERVAL);
+    requestAnimationFrame(tick);
+  }
+  const pauseBtn = document.getElementById('pauseBtn');
+  if(pauseBtn){
+    pauseBtn.addEventListener('click', ()=>{
+      if(!paused){ pauseGame(); pauseBtn.textContent = '▶️ ต่อ'; }
+      else{ resumeGame(); pauseBtn.textContent = '⏸ หยุด'; }
+    });
+  }
+  const quickHome = document.getElementById('quickRestart');
+  if(quickHome){ quickHome.addEventListener('click', ()=>{ location.reload(); }); }
+
+  // Landing handlers
+  (function(){
+    const landing     = document.getElementById('landing');
+    const levelBtns   = document.querySelectorAll('.levelBtn');
+    levelBtns.forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const idx = parseInt(btn.getAttribute('data-level'),10);
+        if (Number.isNaN(idx)) return;
+
+        if(window.__GAME__ && window.__GAME__.setSelectedLevel){
+          window.__GAME__.setSelectedLevel(idx);
+        }
+        const L = (window.__GAME__ && window.__GAME__.getLevel) ? window.__GAME__.getLevel(idx) : null;
+        startTitle.textContent = (L && L.mission) ? L.mission : `ภารกิจ: ${btn.textContent}`;
+
+        landing.classList.add('hide');
+        startScreen.style.display = 'flex';
+        if (startBtn) {
+          startBtn.disabled = false;
+          startBtn.style.display = 'inline-block';
+        }
+        if (countdownEl){ countdownEl.style.display = 'none'; }
+      });
+    });
+
+    const guideBtn  = document.getElementById('guideBtn');
+    const guide     = document.getElementById('guideScreen');
+    const guideBack = document.getElementById('guideBack');
+    if (guideBtn && guide){
+      guideBtn.addEventListener('click', ()=>{
+        landing.classList.add('hide');
+        guide.style.display = 'flex';
+      });
+    }
+    if (guideBack && guide){
+      guideBack.addEventListener('click', ()=>{
+        guide.style.display = 'none';
+        landing.classList.remove('hide');
+      });
+    }
+  })();
+
+})();
+</script>
+
+<!-- หน้าจอเริ่ม: นับถอยหลัง (ใช้เวทีเดิม) -->
+<script>
+(function(){
+  const startScreen = document.getElementById('startScreen');
+  const startBtn = document.getElementById('startBtn');
+  const countdownEl = document.getElementById('countdown');
+  const restartBtn = document.getElementById('restartBtn');
+
+  if(!startScreen || !startBtn || !countdownEl || !restartBtn) return;
+
+  let isCounting = false;
+
+  function startCountdown(){
+    if (isCounting) return;
+    isCounting = true;
+
+    let n = 3;
+    countdownEl.textContent = n;
+    countdownEl.style.display = 'block';
+
+    const itv = setInterval(() => {
+      n--;
+      if(n > 0){
+        countdownEl.textContent = n;
+      } else {
+        clearInterval(itv);
+        startScreen.style.display = 'none';
+        isCounting = false;
+        if(window.__GAME__) window.__GAME__.startGame();
+      }
+    }, 1000);
+  }
+
+  startBtn.addEventListener('click', () => {
+    if (startBtn.disabled) return;
+    startBtn.disabled = true;
+    startBtn.style.display = 'none';
+    startCountdown();
+  });
+
+  restartBtn.addEventListener('click', () => {
+    if(window.__GAME__) window.__GAME__.startGame();
+  });
+})();
+</script>
+
+</body>
+</html>
